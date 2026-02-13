@@ -1,0 +1,90 @@
+@model List<SimpleVideoTracker.Models.Video>
+@{
+    ViewBag.Title = "My Videos";
+    var progressDict = ViewBag.ProgressDict as Dictionary<int, SimpleVideoTracker.Models.UserVideoProgress>;
+}
+
+<div class="container py-4">
+    <!-- Stats Section -->
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div class="row text-center">
+                <div class="col-md-4">
+                    <h3 class="text-primary mb-0">@ViewBag.TotalVideos</h3>
+                    <p class="text-muted mb-0">Total Videos</p>
+                </div>
+                <div class="col-md-4">
+                    <h3 class="text-success mb-0">@ViewBag.CompletedCount</h3>
+                    <p class="text-muted mb-0">Completed</p>
+                </div>
+                <div class="col-md-4">
+                    <h3 class="text-info mb-0">@ViewBag.TotalWatchedHours hrs</h3>
+                    <p class="text-muted mb-0">Total Watch Time</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h1 class="mb-4">Video Library</h1>
+
+    @if (Model == null || Model.Count == 0)
+    {
+        <div class="alert alert-info">No videos available yet.</div>
+    }
+    else
+    {
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4">
+            @foreach (var video in Model)
+            {
+                var progress = progressDict != null && progressDict.ContainsKey(video.VideoId) ? progressDict[video.VideoId] : null;
+                var watchedMinutes = progress != null ? progress.WatchedMinutes : 0;
+                var completed = progress != null && progress.Completed;
+                var percentage = video.DurationMinutes > 0 ? Math.Min((double)watchedMinutes / video.DurationMinutes * 100, 100) : 0;
+                
+                <div class="col">
+                    <div class="card h-100">
+                        <img src="@(string.IsNullOrEmpty(video.ThumbnailUrl) ? "https://via.placeholder.com/400x225?text=" + Uri.EscapeDataString(video.Title) : video.ThumbnailUrl)" 
+                             class="card-img-top video-thumbnail" 
+                             alt="@video.Title">
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title">@video.Title</h5>
+                            <p class="card-text text-muted small flex-grow-1">
+                                @(video.Description.Length > 80 ? video.Description.Substring(0, 80) + "..." : video.Description)
+                            </p>
+                            
+                            <div class="mb-2">
+                                <small class="text-muted">@video.DurationMinutes min</small>
+                                @if (completed)
+                                {
+                                    <span class="badge bg-success float-end">Completed</span>
+                                }
+                                else if (watchedMinutes > 0)
+                                {
+                                    <span class="badge bg-primary float-end">@watchedMinutes / @video.DurationMinutes min</span>
+                                }
+                            </div>
+                            
+                            <!-- Progress Bar -->
+                            <div class="progress mb-3">
+                                <div class="progress-bar @(completed ? "bg-success" : "bg-primary")" 
+                                     role="progressbar" 
+                                     style="width: @percentage%">
+                                </div>
+                            </div>
+                            
+                            @if (percentage > 0)
+                            {
+                                <small class="text-muted mb-2">@Math.Round(percentage, 0)% complete</small>
+                            }
+                            
+                            <a href="@Url.Action("Watch", "Video", new { id = video.VideoId })" 
+                               class="btn btn-primary w-100">
+                                @(watchedMinutes > 0 ? "Continue" : "Start") Watching
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

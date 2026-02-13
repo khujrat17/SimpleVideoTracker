@@ -1,0 +1,178 @@
+@model SimpleVideoTracker.Models.Video
+@{
+    ViewBag.Title = Model.Title;
+    var progress = ViewBag.Progress as SimpleVideoTracker.Models.UserVideoProgress;
+    var watchedMinutes = progress != null ? progress.WatchedMinutes : 0;
+    var completed = progress != null && progress.Completed;
+    var percentage = Model.DurationMinutes > 0 ? Math.Min((double)watchedMinutes / Model.DurationMinutes * 100, 100) : 0;
+}
+
+<div class="container py-4">
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-body p-0">
+                    <video id="videoPlayer" 
+                           class="w-100" 
+                           controls 
+                           style="max-height: 600px; background: #000;">
+                        <source src="@Model.Url" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+            </div>
+            
+            <div class="card shadow">
+                <div class="card-body">
+                    <h2>@Model.Title</h2>
+                    <p class="text-muted">@Model.Description</p>
+                    
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <p class="mb-1">
+                                <strong>Duration:</strong> @Model.DurationMinutes minutes
+                            </p>
+                            <p class="mb-0">
+                                <strong>Watched:</strong> 
+                                <span id="watchedDisplay">@watchedMinutes</span> minutes
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-2">
+                                <strong>Progress:</strong> 
+                                <span id="progressPercent">@Math.Round(percentage, 1)</span>%
+                            </p>
+                            <div class="progress" style="height: 20px;">
+                                <div id="progressBar" 
+                                     class="progress-bar @(completed ? "bg-success" : "bg-primary")" 
+                                     role="progressbar" 
+                                     style="width: @percentage%">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card shadow mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Video Info</h5>
+                    <hr>
+                    <p class="mb-2">
+                        <strong>Status:</strong>
+                        @if (completed)
+                        {
+                            <span class="badge bg-success">Completed</span>
+                        }
+                        else if (watchedMinutes > 0)
+                        {
+                            <span class="badge bg-primary">In Progress</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">Not Started</span>
+                        }
+                    </p>
+                    <p class="mb-0 text-muted small">
+                        Progress is automatically saved as you watch
+                    </p>
+                </div>
+            </div>
+            
+            <div class="card shadow">
+                <div class="card-body">
+                    <a href="@Url.Action("Index", "Video")" class="btn btn-outline-secondary w-100">
+                        Back to Library
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section scripts {
+<script>
+    var videoPlayer = document.getElementById('videoPlayer');
+    var videoId = @Model.VideoId;
+    var videoDuration = @Model.DurationMinutes;
+    var lastSavedMinute = @watchedMinutes;
+    var updateTimer = null;
+    
+    // Track watched time
+    videoPlayer.addEventListener('timeupdate', function() {
+        var currentMinutes = Math.floor(videoPlayer.currentTime / 60);
+        
+        // Update UI immediately
+        document.getElementById('watchedDisplay').textContent = currentMinutes;
+        
+        // Update progress bar
+        var progressPercent = Math.min((currentMinutes / videoDuration) * 100, 100);
+        document.getElementById('progressPercent').textContent = progressPercent.toFixed(1);
+        document.getElementById('progressBar').style.width = progressPercent + '%';
+        
+        // Update completed status
+        if (currentMinutes >= videoDuration) {
+            document.getElementById('progressBar').classList.remove('bg-primary');
+            document.getElementById('progressBar').classList.add('bg-success');
+        }
+        
+        // Save progress every minute (debounced)
+        if (currentMinutes > lastSavedMinute) {
+            if (updateTimer) {
+                clearTimeout(updateTimer);
+            }
+            
+            updateTimer = setTimeout(function() {
+                updateProgress(currentMinutes);
+            }, 2000);
+        }
+    });
+    
+    // Save progress on pause
+    videoPlayer.addEventListener('pause', function() {
+        var currentMinutes = Math.floor(videoPlayer.currentTime / 60);
+        if (currentMinutes > lastSavedMinute) {
+            updateProgress(currentMinutes);
+        }
+    });
+    
+    // Save progress when leaving page
+    window.addEventListener('beforeunload', function() {
+        var currentMinutes = Math.floor(videoPlayer.currentTime / 60);
+        if (currentMinutes > lastSavedMinute) {
+            // Synchronous call for page unload
+            $.ajax({
+                url: '@Url.Action("UpdateProgress", "Video")',
+                type: 'POST',
+                async: false,
+                data: {
+                    videoId: videoId,
+                    watchedMinutes: currentMinutes
+                }
+            });
+        }
+    });
+    
+    function updateProgress(minutes) {
+        $.ajax({
+            url: '@Url.Action("UpdateProgress", "Video")',
+            type: 'POST',
+            data: {
+                videoId: videoId,
+                watchedMinutes: minutes
+            },
+            success: function(data) {
+                if (data.success) {
+                    lastSavedMinute = data.watchedMinutes;
+                    console.log('Progress saved:', data);
+                }
+            },
+            error: function(error) {
+                console.error('Error saving progress:', error);
+            }
+        });
+    }
+</script>
+}
