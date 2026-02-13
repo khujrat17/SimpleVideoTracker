@@ -395,6 +395,11 @@ Want to extend this? Here are some ideas:
 - [ ] Add social features (share progress)
 - [ ] Add certificates for completed courses
 
+- [ ] 
+- [ ] 
+- [ ] 
+- [ ] 
+- [ ] 
 ## Support
 
 This is a simple educational project. For questions:
